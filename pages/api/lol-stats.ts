@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
 import { createCanvas, loadImage } from 'canvas';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 const RIOT_API_KEY = process.env.RIOT_API_KEY;
 const PUUID = process.env.PUUID || '';
@@ -14,6 +16,25 @@ const getSummonerStats = async (puuid: string) => {
     },
   });
   return response.data;
+};
+
+// ฟังก์ชั่นหากรอบรูป
+const findAppropriateBorder = async (level: number) => {
+  const borderDir = path.join(process.cwd(), 'assets', 'icon-border');
+  const files = await fs.readdir(borderDir);
+  files.sort((a, b) => {
+    const levelA = parseInt(a.split('_')[1]);
+    const levelB = parseInt(b.split('_')[1]);
+    return levelA - levelB;
+  });
+
+  for (const file of files) {
+    const fileLevel = parseInt(file.split('_')[1]);
+    if (level <= fileLevel) {
+      return path.join(borderDir, file);
+    }
+  }
+  return null;
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -44,12 +65,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const profileIconUrl = `https://ddragon.leagueoflegends.com/cdn/14.13.1/img/profileicon/${profileIconId}.png`;
     try {
       const icon = await loadImage(profileIconUrl);
-      ctx.drawImage(icon, 650, 50, 100, 100);
+      
+        // วาดวงกลมสำหรับ clipping
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(654 + 46, 45 + 46, 46, 0, Math.PI * 2, true); // 46 is the radius (half of 92)
+        ctx.closePath();
+        ctx.clip();
+  
+        // วาดไอคอนใน clipping area
+        ctx.drawImage(icon, 654, 45, 92, 92);
+        ctx.restore();
+
+       // ค้นหาและเพิ่ม border ที่เหมาะสม
+       const borderPath = await findAppropriateBorder(summonerLevel);
+       if (borderPath) {
+         const border = await loadImage(borderPath);
+         ctx.drawImage(border, 575, -25, 250, 250);
+       }
 
       // เพิ่มขอบรูปโปรไฟล์
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 5;
-      ctx.strokeRect(650, 50, 100, 100);
+      // ctx.strokeStyle = '#ffffff';
+      // ctx.lineWidth = 5;
+      // ctx.strokeRect(650, 50, 100, 100);
     } catch (loadImageError) {
       console.error('Error loading profile icon:', loadImageError);
     }
