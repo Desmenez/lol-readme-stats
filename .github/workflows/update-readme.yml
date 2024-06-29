@@ -1,0 +1,20 @@
+name: Update README
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs every day at midnight
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        run: pnpm install
+      - name: Compile TypeScript
+        run: pnpm tsc
+      - name: Run script to update README
+        run: |
+          curl -s http://localhost:3000/api/lol-stats > stats.json
+          node dist/update-readme.js
